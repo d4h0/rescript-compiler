@@ -55,7 +55,8 @@ let rec apply_with_arity_aux (fn : J.expression) (arity : int list)
           let params =
             Ext_list.init (x - len) (fun _ -> Ext_ident.create "param")
           in
-          E.ocaml_fun params ~return_unit:false (* unknown info *) ~async:false
+          E.ocaml_fun params ~return_unit:false (* unknown info *)
+            ~async:false
             [
               S.return_stmt
                 (E.call
@@ -320,7 +321,9 @@ and compile_recursive_let ~all_bindings (cxt : Lam_compile_context.t)
             ]
         else
           (* TODO:  save computation of length several times *)
-          E.ocaml_fun params (Js_output.output_as_block output) ~return_unit ~async
+          E.ocaml_fun params
+            (Js_output.output_as_block output)
+            ~return_unit ~async
       in
       ( Js_output.output_of_expression
           (Declare (Alias, id))
@@ -398,7 +401,8 @@ and compile_recursive_let ~all_bindings (cxt : Lam_compile_context.t)
                  [
                    S.exp
                      (E.runtime_call Js_runtime_modules.obj_runtime
-                        "update_dummy" [ E.var id; v ]);
+                        "update_dummy"
+                        [ E.var id; v ]);
                  ]),
             [ S.define_variable ~kind:Variable id (E.dummy_obj tag_info) ] )
       | _ -> assert false)
@@ -1366,7 +1370,7 @@ and compile_apply (appinfo : Lam.apply) (lambda_cxt : Lam_compile_context.t) =
                ~info:(call_info_of_ap_status appinfo.ap_info.ap_status)
                fn_code args))
 
-and compile_prim (prim_info : Lam.prim_info)
+and compile_prim ?output_prefix (prim_info : Lam.prim_info)
     (lambda_cxt : Lam_compile_context.t) =
   match prim_info with
   | { primitive = Pfield (_, fld_info); args = [ Lglobal_module id ]; _ } -> (
@@ -1534,13 +1538,14 @@ and compile_prim (prim_info : Lam.prim_info)
       let args_code : J.block = List.concat args_block in
       let exp =
         (* TODO: all can be done in [compile_primitive] *)
-        Lam_compile_primitive.translate loc lambda_cxt primitive args_expr
+        Lam_compile_primitive.translate ?output_prefix loc lambda_cxt primitive
+          args_expr
       in
       Js_output.output_of_block_and_expression lambda_cxt.continuation args_code
         exp
 
-and compile_lambda (lambda_cxt : Lam_compile_context.t) (cur_lam : Lam.t) :
-    Js_output.t =
+and compile_lambda ?output_prefix (lambda_cxt : Lam_compile_context.t)
+    (cur_lam : Lam.t) : Js_output.t =
   match cur_lam with
   | Lfunction { params; body; attr = { return_unit; async } } ->
       Js_output.output_of_expression lambda_cxt.continuation
@@ -1598,7 +1603,7 @@ and compile_lambda (lambda_cxt : Lam_compile_context.t) (cur_lam : Lam.t) :
       *)
       Js_output.output_of_block_and_expression lambda_cxt.continuation []
         (E.ml_module_as_var i)
-  | Lprim prim_info -> compile_prim prim_info lambda_cxt
+  | Lprim prim_info -> compile_prim ?output_prefix prim_info lambda_cxt
   | Lsequence (l1, l2) ->
       let output_l1 =
         compile_lambda { lambda_cxt with continuation = EffectCall Not_tail } l1

@@ -34,7 +34,7 @@
 (* module S = Js_stmt_make   *)
 
 
-let compile_group (meta : Lam_stats.t) 
+let compile_group ~output_prefix (meta : Lam_stats.t) 
     (x : Lam_group.t) : Js_output.t  = 
   match x with 
   (* 
@@ -61,7 +61,7 @@ let compile_group (meta : Lam_stats.t)
     (* let lam = Optimizer.simplify_lets [] lam in  *)
     (* can not apply again, it's wrong USE it with care*)
     (* ([Js_stmt_make.comment (Gen_of_env.query_type id  env )], None)  ++ *)
-    Lam_compile.compile_lambda { continuation = Declare (kind, id);
+    Lam_compile.compile_lambda ~output_prefix { continuation = Declare (kind, id);
                                  jmp_table = Lam_compile_context.empty_handler_map;
                                  meta
                                } lam
@@ -74,7 +74,7 @@ let compile_group (meta : Lam_stats.t)
       } 
       id_lams
   | Nop lam -> (* TODO: Side effect callls, log and see statistics *)
-    Lam_compile.compile_lambda {continuation = EffectCall Not_tail;
+    Lam_compile.compile_lambda ~output_prefix {continuation = EffectCall Not_tail;
                                 jmp_table = Lam_compile_context.empty_handler_map;
                                 meta
                                } lam
@@ -231,7 +231,7 @@ let maybe_pure = no_side_effects groups in
 let () = Ext_log.dwarn ~__POS__ "\n@[[TIME:]Pre-compile: %f@]@."  (Sys.time () *. 1000.) in      
 # 224 "core/lam_compile_main.pp.ml"
 let body  =     
-  Ext_list.map groups (fun group -> compile_group meta group)
+  Ext_list.map groups (fun group -> compile_group ~output_prefix meta group)
   |> Js_output.concat
   |> Js_output.output_as_block
 in

@@ -29,6 +29,7 @@
 *)
 
 val translate :
+  ?output_prefix:string ->
   Location.t ->
   Lam_compile_context.t ->
   Lam_primitive.t ->
