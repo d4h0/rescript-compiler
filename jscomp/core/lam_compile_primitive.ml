@@ -82,19 +82,23 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
       match args with
       | [ e ] -> (
           match e.expression_desc with
+          (* TODO: check if value or unpack *)
           | _ -> (
               match output_prefix with
               | Some output_prefix ->
                   let output_dir = Filename.dirname output_prefix in
-                  let d = Js_dump.string_of_expression e in
-                  let id = Ident.create d in
+                  (* TODO: construct J.module_id from e *)
+                  let id = Ident.create "Belt_List" in
                   let path =
                     Js_name_of_module_id.string_of_module_id
-                      (Lam_module_ident.of_ml id)
-                      ~output_dir Js_packages_info.Es6
+                      { id; kind = Js_op.Ml } ~output_dir
+                      (* TODO: where is Js_package_info.module_system ? *)
+                      Js_packages_info.NodeJS
                   in
-                  print_endline path;
-                  E.str ("TODO:import " ^ d)
+                  E.call
+                    ~info:{ arity = Full; call_info = Call_na }
+                    (E.js_global "import")
+                    [ E.str path ]
               | None -> assert false))
       | _ -> assert false)
   | Pjs_function_length -> E.function_length (Ext_list.singleton_exn args)
