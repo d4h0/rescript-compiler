@@ -87,11 +87,29 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
               match output_prefix with
               | Some output_prefix ->
                   let output_dir = Filename.dirname output_prefix in
-                  (* TODO: construct J.module_id from e *)
-                  let id = Ident.create "Belt_List" in
+
+                  (* TODO: pull this function out to top-level *)
+                  let rec module_names_of_expression = function
+                    | J.Var (J.Qualified ({ id = { name } }, _)) -> [ name ]
+                    | J.Caml_block (exprs, _, _, _) ->
+                        exprs
+                        |> List.map (fun (e : J.expression) ->
+                               module_names_of_expression e.expression_desc)
+                        |> List.concat
+                    | _ -> []
+                  in
+
+                  let module_name =
+                    match module_names_of_expression e.expression_desc with
+                    | [ module_name ] -> module_name
+                    | _ -> assert false
+                    (* TODO: graceful error message here *)
+                  in
+
                   let path =
                     Js_name_of_module_id.string_of_module_id
-                      { id; kind = Js_op.Ml } ~output_dir
+                      { id = Ident.create module_name; kind = Js_op.Ml }
+                      ~output_dir
                       (* TODO: where is Js_package_info.module_system ? *)
                       Js_packages_info.NodeJS
                   in
