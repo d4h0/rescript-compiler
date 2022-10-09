@@ -82,25 +82,25 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
       match args with
       | [ e ] -> (
           match e.expression_desc with
-          (* TODO: check if value or unpack *)
           | _ -> (
               match output_prefix with
-              | Some output_prefix ->
+              | Some output_prefix -> (
                   let output_dir = Filename.dirname output_prefix in
 
                   (* TODO: pull this function out to top-level *)
-                  let rec module_id_of_expression = function
-                    | J.Var (J.Qualified (module_id, _)) -> [ module_id ]
+                  let rec module_of_expression = function
+                    | J.Var (J.Qualified (module_id, value)) ->
+                        [ (module_id, value) ]
                     | J.Caml_block (exprs, _, _, _) ->
                         exprs
                         |> List.map (fun (e : J.expression) ->
-                               module_id_of_expression e.expression_desc)
+                               module_of_expression e.expression_desc)
                         |> List.concat
                     | _ -> []
                   in
 
-                  let module_id =
-                    match module_id_of_expression e.expression_desc with
+                  let module_id, value =
+                    match module_of_expression e.expression_desc with
                     | [ module_name ] -> module_name
                     | _ -> assert false
                     (* TODO: graceful error message here *)
@@ -112,10 +112,34 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
                       (* TODO: where is Js_package_info.module_system ? *)
                       Js_packages_info.NodeJS
                   in
-                  E.call
-                    ~info:{ arity = Full; call_info = Call_na }
-                    (E.js_global "import")
-                    [ E.str path ]
+                  let arg_of_callback_fn = Ident.create "m" in
+                  match value with
+                  | Some value ->
+                      E.call
+                        ~info:{ arity = Full; call_info = Call_na }
+                        (E.dot
+                           (E.call
+                              ~info:{ arity = Full; call_info = Call_na }
+                              (E.js_global "import")
+                              [ E.str path ])
+                           "then")
+                        [
+                          E.ocaml_fun ~return_unit:false ~async:false
+                            [ arg_of_callback_fn ]
+                            [
+                              {
+                                statement_desc =
+                                  J.Return
+                                    (E.dot (E.var arg_of_callback_fn) value);
+                                comment = None;
+                              };
+                            ];
+                        ]
+                  | None ->
+                      E.call
+                        ~info:{ arity = Full; call_info = Call_na }
+                        (E.js_global "import")
+                        [ E.str path ])
               | None -> assert false))
       | _ -> assert false)
   | Pjs_function_length -> E.function_length (Ext_list.singleton_exn args)

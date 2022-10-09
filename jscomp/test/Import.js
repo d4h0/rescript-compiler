@@ -2,7 +2,9 @@
 
 var Curry = require("../../lib/js/curry.js");
 
-var each = import("../../lib/js/belt_List.js");
+var each = import("../../lib/js/belt_List.js").then(function (m) {
+      return m.forEach;
+    });
 
 function eachInt(list, f) {
   var arg1 = function (each) {
