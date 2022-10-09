@@ -10,3 +10,5 @@ let _ = list{1, 2, 3}->eachIntAsync(n => Js.log2("async", n))
 
 module type BeltList = module type of Belt.List
 let beltAsModule = Js.import(module(Belt.List: BeltList))
+
+module M = @res.await Belt.List
