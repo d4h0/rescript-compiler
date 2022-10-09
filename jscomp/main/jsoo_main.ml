@@ -78,7 +78,7 @@ let implementation ~use_super_errors impl str : Js.Unsafe.obj =
     let () =
       Js_dump_program.pp_deps_program ~output_prefix:""
         (* does not matter here *) NodeJS
-        (Lam_compile_main.compile "" exports lam)
+        (Lam_compile_main.compile ~output_prefix:"" exports lam)
         (Ext_pp.from_buffer buffer)
     in
     let v = Buffer.contents buffer in
@@ -94,13 +94,11 @@ let implementation ~use_super_errors impl str : Js.Unsafe.obj =
           obj [| ("js_error_msg", inject @@ Js.string (Printexc.to_string e)) |]))
 
 let compile impl ~use_super_errors = implementation ~use_super_errors impl
-
 let export (field : string) v = Js.Unsafe.set Js.Unsafe.global field v
 
 (* To add a directory to the load path *)
 
 let dir_directory d = Config.load_path := d :: !Config.load_path
-
 let () = dir_directory "/static"
 
 let make_compiler name impl =

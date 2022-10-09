@@ -20,8 +20,26 @@ async function eachIntAsync(list, f) {
   return Curry._2(each$1, list, f);
 }
 
+function eachLazy(param) {
+  return import("../../lib/js/belt_List.js").then(function (m) {
+              return m.forEach;
+            });
+}
+
+function eachIntLazy(list, f) {
+  var obj = import("../../lib/js/belt_List.js").then(function (m) {
+        return m.forEach;
+      });
+  var arg1 = function (each) {
+    return Promise.resolve(Curry._2(each, list, f));
+  };
+  return obj.then(arg1);
+}
+
 exports.each = each;
 exports.eachInt = eachInt;
 exports.beltAsModule = beltAsModule;
 exports.eachIntAsync = eachIntAsync;
+exports.eachLazy = eachLazy;
+exports.eachIntLazy = eachIntLazy;
 /* No side effect */

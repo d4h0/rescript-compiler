@@ -484,7 +484,7 @@ module Compile = struct
           let () = Js_dump_program.pp_deps_program
               ~output_prefix:"" (* does not matter here *)
               module_system
-              (Lam_compile_main.compile "" exports lam)
+              (Lam_compile_main.compile ~output_prefix:"" exports lam)
               (Ext_pp.from_buffer buffer) in
           let v = Buffer.contents buffer in
           let typeHints = collectTypeHints typed_tree in

@@ -67,7 +67,7 @@ let compile_group ~output_prefix (meta : Lam_stats.t)
                                } lam
 
   | Recursive id_lams   -> 
-    Lam_compile.compile_recursive_lets 
+    Lam_compile.compile_recursive_lets ~output_prefix
       { continuation = EffectCall Not_tail; 
         jmp_table = Lam_compile_context.empty_handler_map;
         meta
@@ -125,7 +125,7 @@ let _j = Js_pass_debug.dump
     it's used or not 
 *)
 let compile  
-    (output_prefix : string) 
+    ~output_prefix
     export_idents
     (lam : Lambda.lambda)  = 
   let export_ident_sets = Set_ident.of_list export_idents in 
