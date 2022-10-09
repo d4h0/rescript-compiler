@@ -89,26 +89,25 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
                   let output_dir = Filename.dirname output_prefix in
 
                   (* TODO: pull this function out to top-level *)
-                  let rec module_names_of_expression = function
-                    | J.Var (J.Qualified ({ id = { name } }, _)) -> [ name ]
+                  let rec module_id_of_expression = function
+                    | J.Var (J.Qualified (module_id, _)) -> [ module_id ]
                     | J.Caml_block (exprs, _, _, _) ->
                         exprs
                         |> List.map (fun (e : J.expression) ->
-                               module_names_of_expression e.expression_desc)
+                               module_id_of_expression e.expression_desc)
                         |> List.concat
                     | _ -> []
                   in
 
-                  let module_name =
-                    match module_names_of_expression e.expression_desc with
+                  let module_id =
+                    match module_id_of_expression e.expression_desc with
                     | [ module_name ] -> module_name
                     | _ -> assert false
                     (* TODO: graceful error message here *)
                   in
 
                   let path =
-                    Js_name_of_module_id.string_of_module_id
-                      { id = Ident.create module_name; kind = Js_op.Ml }
+                    Js_name_of_module_id.string_of_module_id module_id
                       ~output_dir
                       (* TODO: where is Js_package_info.module_system ? *)
                       Js_packages_info.NodeJS
