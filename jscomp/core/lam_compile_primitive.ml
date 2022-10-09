@@ -106,12 +106,22 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
                     (* TODO: graceful error message here *)
                   in
 
-                  let path =
-                    Js_name_of_module_id.string_of_module_id module_id
-                      ~output_dir
-                      (* TODO: where is Js_package_info.module_system ? *)
-                      Js_packages_info.NodeJS
+                  let packages_info = Js_packages_state.get_packages_info () in
+
+                  let module_system = ref None in
+                  let _ =
+                    Js_packages_info.iter packages_info
+                      (fun { module_system = ms } -> module_system := Some ms)
                   in
+
+                  let path =
+                    match !module_system with
+                    | Some module_system ->
+                        Js_name_of_module_id.string_of_module_id module_id
+                          ~output_dir module_system
+                    | _ -> assert false
+                  in
+
                   let arg_of_callback_fn = Ident.create "m" in
                   match value with
                   | Some value ->
