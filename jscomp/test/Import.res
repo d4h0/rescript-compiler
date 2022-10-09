@@ -6,3 +6,8 @@ let eachInt = (list: list<int>, f: int => unit) =>
 module type BeltList = module type of Belt.List
 
 let beltAsModule = Js.import(module(Belt.List: BeltList))
+
+let eachInt = async (list: list<int>, f: int => unit) => {
+  let each = await each
+  list->each(f)
+}
