@@ -11,3 +11,8 @@ let eachInt = async (list: list<int>, f: int => unit) => {
   let each = await each
   list->each(f)
 }
+
+let eachLazy = () => Js.import(Belt.List.forEach)
+
+let eachInt = (list: list<int>, f: int => unit) =>
+  eachLazy() |> Js.Promise.then_(each => list->each(f)->Js.Promise.resolve)
