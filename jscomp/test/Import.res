@@ -7,12 +7,12 @@ module type BeltList = module type of Belt.List
 
 let beltAsModule = Js.import(module(Belt.List: BeltList))
 
-let eachInt = async (list: list<int>, f: int => unit) => {
+let eachIntAsync = async (list: list<int>, f: int => unit) => {
   let each = await each
   list->each(f)
 }
 
 let eachLazy = () => Js.import(Belt.List.forEach)
 
-let eachInt = (list: list<int>, f: int => unit) =>
+let eachIntLazy = (list: list<int>, f: int => unit) =>
   eachLazy() |> Js.Promise.then_(each => list->each(f)->Js.Promise.resolve)
