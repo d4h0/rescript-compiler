@@ -36,6 +36,45 @@ let ensure_value_unit (st : Lam_compile_context.continuation) e : E.t =
   | EffectCall Not_tail -> e
 (* NeedValue should return a meaningful expression*)
 
+let rec module_of_expression = function
+  | J.Var (J.Qualified (module_id, value)) -> [ (module_id, value) ]
+  | J.Caml_block (exprs, _, _, _) ->
+      exprs
+      |> List.map (fun (e : J.expression) ->
+             module_of_expression e.expression_desc)
+      |> List.concat
+  | _ -> []
+
+let get_module_system () =
+  let packages_info = Js_packages_state.get_packages_info () in
+  let module_systems =
+    Js_packages_info.map packages_info (fun { module_system } -> module_system)
+  in
+  match module_systems with
+  | [] -> assert false
+  | module_system :: _rest -> module_system
+
+let import_of_path path =
+  E.call
+    ~info:{ arity = Full; call_info = Call_na }
+    (E.js_global "import")
+    [ E.str path ]
+
+let wrap_then import value =
+  let arg = Ident.create "m" in
+  E.call
+    ~info:{ arity = Full; call_info = Call_na }
+    (E.dot import "then")
+    [
+      E.ocaml_fun ~return_unit:false ~async:false [ arg ]
+        [
+          {
+            statement_desc = J.Return (E.dot (E.var arg) value);
+            comment = None;
+          };
+        ];
+    ]
+
 let translate ?output_prefix loc (cxt : Lam_compile_context.t)
     (prim : Lam_primitive.t) (args : J.expression list) : J.expression =
   match prim with
@@ -87,69 +126,21 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
               | Some output_prefix -> (
                   let output_dir = Filename.dirname output_prefix in
 
-                  (* TODO: pull this function out to top-level *)
-                  let rec module_of_expression = function
-                    | J.Var (J.Qualified (module_id, value)) ->
-                        [ (module_id, value) ]
-                    | J.Caml_block (exprs, _, _, _) ->
-                        exprs
-                        |> List.map (fun (e : J.expression) ->
-                               module_of_expression e.expression_desc)
-                        |> List.concat
-                    | _ -> []
-                  in
-
-                  let module_id, value =
+                  let module_id, module_value =
                     match module_of_expression e.expression_desc with
-                    | [ module_name ] -> module_name
+                    | [ module_ ] -> module_
                     | _ -> assert false
                     (* TODO: graceful error message here *)
                   in
 
-                  let packages_info = Js_packages_state.get_packages_info () in
-
-                  let module_system = ref None in
-                  let _ =
-                    Js_packages_info.iter packages_info
-                      (fun { module_system = ms } -> module_system := Some ms)
-                  in
-
                   let path =
-                    match !module_system with
-                    | Some module_system ->
-                        Js_name_of_module_id.string_of_module_id module_id
-                          ~output_dir module_system
-                    | _ -> assert false
+                    Js_name_of_module_id.string_of_module_id module_id
+                      ~output_dir (get_module_system ())
                   in
 
-                  let arg_of_callback_fn = Ident.create "m" in
-                  match value with
-                  | Some value ->
-                      E.call
-                        ~info:{ arity = Full; call_info = Call_na }
-                        (E.dot
-                           (E.call
-                              ~info:{ arity = Full; call_info = Call_na }
-                              (E.js_global "import")
-                              [ E.str path ])
-                           "then")
-                        [
-                          E.ocaml_fun ~return_unit:false ~async:false
-                            [ arg_of_callback_fn ]
-                            [
-                              {
-                                statement_desc =
-                                  J.Return
-                                    (E.dot (E.var arg_of_callback_fn) value);
-                                comment = None;
-                              };
-                            ];
-                        ]
-                  | None ->
-                      E.call
-                        ~info:{ arity = Full; call_info = Call_na }
-                        (E.js_global "import")
-                        [ E.str path ])
+                  match module_value with
+                  | Some value -> wrap_then (import_of_path path) value
+                  | None -> import_of_path path)
               | None -> assert false))
       | _ -> assert false)
   | Pjs_function_length -> E.function_length (Ext_list.singleton_exn args)
