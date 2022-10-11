@@ -63,6 +63,7 @@ type mapper = Bs_ast_mapper.mapper
 let default_mapper = Bs_ast_mapper.default_mapper
 let default_expr_mapper = Bs_ast_mapper.default_mapper.expr
 let default_pat_mapper = Bs_ast_mapper.default_mapper.pat
+let default_module_expr_mapper = Bs_ast_mapper.default_mapper.module_expr
 
 let pat_mapper (self : mapper) (e : Parsetree.pattern) =
   match e.ppat_desc with
@@ -235,10 +236,16 @@ let expr_mapper ~async_context ~in_function_def (self : mapper)
   match Ast_attributes.has_await_payload e.pexp_attributes with
   | None -> result
   | Some _ ->
-      if !async_context = false then
-        Location.raise_errorf ~loc:e.pexp_loc
-          "Await on expression not in an async context";
+      (* if !async_context = false then
+         Location.raise_errorf ~loc:e.pexp_loc
+           "Await on expression not in an async context"; *)
       Ast_await.create_await_expression result
+
+let module_expr_mapper (self : mapper) (e : Parsetree.module_expr) =
+  let result = default_module_expr_mapper self e in
+  match Ast_attributes.has_await_payload e.pmod_attributes with
+  | None -> result
+  | Some _ -> Ast_await.create_await_module_expression result
 
 let typ_mapper (self : mapper) (typ : Parsetree.core_type) =
   Ast_core_type_class_type.typ_mapper self typ
@@ -547,6 +554,7 @@ let mapper : mapper =
   {
     default_mapper with
     expr = expr_mapper ~async_context:(ref false) ~in_function_def:(ref false);
+    module_expr = module_expr_mapper;
     pat = pat_mapper;
     typ = typ_mapper;
     class_type = class_type_mapper;

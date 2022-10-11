@@ -46,10 +46,13 @@ eachIntAsync({
 
 var beltAsModule = import("../../lib/js/belt_List.js");
 
-var M;
+var M = await import("../../lib/js/belt_List.js");
+
+var each = M.forEach;
 
 exports.eachIntAsync = eachIntAsync;
 exports.eachIntLazy = eachIntLazy;
 exports.beltAsModule = beltAsModule;
 exports.M = M;
+exports.each = each;
 /*  Not a pure module */
