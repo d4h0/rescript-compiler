@@ -36,13 +36,8 @@ let ensure_value_unit (st : Lam_compile_context.continuation) e : E.t =
   | EffectCall Not_tail -> e
 (* NeedValue should return a meaningful expression*)
 
-let rec module_of_expression = function
+let module_of_expression = function
   | J.Var (J.Qualified (module_id, value)) -> [ (module_id, value) ]
-  | J.Caml_block (exprs, _, _, _) ->
-      exprs
-      |> List.map (fun (e : J.expression) ->
-             module_of_expression e.expression_desc)
-      |> List.concat
   | _ -> []
 
 let get_module_system () =
@@ -75,7 +70,7 @@ let wrap_then import value =
         ];
     ]
 
-let translate ?output_prefix loc (cxt : Lam_compile_context.t)
+let translate ~output_prefix loc (cxt : Lam_compile_context.t)
     (prim : Lam_primitive.t) (args : J.expression list) : J.expression =
   match prim with
   | Pis_not_none -> Js_of_lam_option.is_not_none (Ext_list.singleton_exn args)
@@ -120,28 +115,23 @@ let translate ?output_prefix loc (cxt : Lam_compile_context.t)
   | Pimport -> (
       match args with
       | [ e ] -> (
-          match e.expression_desc with
-          | _ -> (
-              match output_prefix with
-              | Some output_prefix -> (
-                  let output_dir = Filename.dirname output_prefix in
+          let output_dir = Filename.dirname output_prefix in
 
-                  let module_id, module_value =
-                    match module_of_expression e.expression_desc with
-                    | [ module_ ] -> module_
-                    | _ -> assert false
-                    (* TODO: graceful error message here *)
-                  in
+          let module_id, module_value =
+            match module_of_expression e.expression_desc with
+            | [ module_ ] -> module_
+            | _ -> assert false
+            (* TODO: graceful error message here *)
+          in
 
-                  let path =
-                    Js_name_of_module_id.string_of_module_id module_id
-                      ~output_dir (get_module_system ())
-                  in
+          let path =
+            Js_name_of_module_id.string_of_module_id module_id ~output_dir
+              (get_module_system ())
+          in
 
-                  match module_value with
-                  | Some value -> wrap_then (import_of_path path) value
-                  | None -> import_of_path path)
-              | None -> assert false))
+          match module_value with
+          | Some value -> wrap_then (import_of_path path) value
+          | None -> import_of_path path)
       | _ -> assert false)
   | Pjs_function_length -> E.function_length (Ext_list.singleton_exn args)
   | Pcaml_obj_length -> E.obj_length (Ext_list.singleton_exn args)
