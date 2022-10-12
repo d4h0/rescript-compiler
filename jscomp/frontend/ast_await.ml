@@ -7,52 +7,24 @@ let create_await_expression (e : Parsetree.expression) =
 
 let create_await_module_expression ~module_type_name (e : Parsetree.module_expr)
     =
-  let txt = Longident.Ldot (Lident "Js", "import") in
-  let _module_lid =
-    match e with { pmod_desc = Pmod_ident lid } -> lid | _ -> assert false
-  in
-  let module_expr_without_attr = { e with pmod_attributes = [] } in
-  let import_pexp_desc = Parsetree.Pexp_ident { txt; loc = e.pmod_loc } in
+  let open Ast_helper in
   {
-    module_expr_without_attr with
+    e with
     pmod_desc =
       Pmod_unpack
         (create_await_expression
-           {
-             pexp_desc =
-               Pexp_apply
-                 ( {
-                     pexp_desc = import_pexp_desc;
-                     pexp_attributes = [];
-                     pexp_loc = e.pmod_loc;
-                   },
-                   [
-                     ( Nolabel,
-                       {
-                         pexp_desc =
-                           Pexp_constraint
-                             ( {
-                                 pexp_desc = Pexp_pack module_expr_without_attr;
-                                 pexp_loc = e.pmod_loc;
-                                 pexp_attributes = [];
-                               },
-                               {
-                                 ptyp_desc =
-                                   Ptyp_package
-                                     ( {
-                                         txt = Lident module_type_name;
-                                         loc = e.pmod_loc;
-                                       },
-                                       [] );
-                                 ptyp_loc = e.pmod_loc;
-                                 ptyp_attributes = [];
-                               } );
-                         pexp_attributes = [];
-                         pexp_loc = e.pmod_loc;
-                       } );
-                   ] );
-             pexp_attributes =
-               [ ({ txt = "res.await"; loc = Location.none }, PStr []) ];
-             pexp_loc = e.pmod_loc;
-           });
+           (Exp.apply
+              (Exp.ident ~loc:e.pmod_loc
+                 {
+                   txt = Longident.Ldot (Lident "Js", "import");
+                   loc = e.pmod_loc;
+                 })
+              [
+                ( Nolabel,
+                  Exp.constraint_ ~loc:e.pmod_loc
+                    (Exp.pack ~loc:e.pmod_loc e)
+                    (Typ.package ~loc:e.pmod_loc
+                       { txt = Lident module_type_name; loc = e.pmod_loc }
+                       []) );
+              ]));
   }
