@@ -63,7 +63,6 @@ type mapper = Bs_ast_mapper.mapper
 let default_mapper = Bs_ast_mapper.default_mapper
 let default_expr_mapper = Bs_ast_mapper.default_mapper.expr
 let default_pat_mapper = Bs_ast_mapper.default_mapper.pat
-let default_module_expr_mapper = Bs_ast_mapper.default_mapper.module_expr
 
 let pat_mapper (self : mapper) (e : Parsetree.pattern) =
   match e.ppat_desc with
@@ -240,12 +239,6 @@ let expr_mapper ~async_context ~in_function_def (self : mapper)
          Location.raise_errorf ~loc:e.pexp_loc
            "Await on expression not in an async context"; *)
       Ast_await.create_await_expression result
-
-let module_expr_mapper (self : mapper) (e : Parsetree.module_expr) =
-  let result = default_module_expr_mapper self e in
-  match Ast_attributes.has_await_payload e.pmod_attributes with
-  | None -> result
-  | Some _ -> Ast_await.create_await_module_expression result
 
 let typ_mapper (self : mapper) (typ : Parsetree.core_type) =
   Ast_core_type_class_type.typ_mapper self typ
@@ -485,6 +478,13 @@ let local_module_name =
     incr v;
     "local_" ^ string_of_int !v
 
+let local_module_type_name =
+  let v = ref 0 in
+  fun ({ txt } : Longident.t Location.loc) ->
+    incr v;
+    (Longident.flatten txt |> List.fold_left (fun ll l -> ll ^ l) "")
+    ^ string_of_int !v
+
 let expand_reverse (stru : Ast_structure.t) (acc : Ast_structure.t) :
     Ast_structure.t =
   if stru = [] then acc
@@ -548,13 +548,43 @@ let rec structure_mapper (self : mapper) (stru : Ast_structure.t) =
             | _ -> expand_reverse acc (structure_mapper self rest)
           in
           aux [] stru
+      | Pstr_module
+          ({
+             pmb_expr =
+               { pmod_desc = Pmod_ident { txt; loc }; pmod_attributes } as me;
+           } as mb)
+      (* module M = @res.await Belt.List *)
+        when Res_parsetree_viewer.hasAwaitAttribute pmod_attributes ->
+          let item = self.structure_item self item in
+          let safe_module_type_name = local_module_type_name { txt; loc } in
+          let module_type_decl =
+            let open Ast_helper in
+            Str.modtype ~loc
+              (Mtd.mk ~loc
+                 { txt = safe_module_type_name; loc }
+                 ~typ:(Mty.typeof_ ~loc me))
+          in
+          (* module BeltList0 = module type of Belt.List *)
+          module_type_decl
+          :: {
+               item with
+               pstr_desc =
+                 Pstr_module
+                   {
+                     mb with
+                     pmb_expr =
+                       Ast_await.create_await_module_expression
+                         ~module_type_name:safe_module_type_name mb.pmb_expr;
+                   };
+             }
+             (* module M = @res.await Belt.List *)
+          :: structure_mapper self rest
       | _ -> self.structure_item self item :: structure_mapper self rest)
 
 let mapper : mapper =
   {
     default_mapper with
     expr = expr_mapper ~async_context:(ref false) ~in_function_def:(ref false);
-    module_expr = module_expr_mapper;
     pat = pat_mapper;
     typ = typ_mapper;
     class_type = class_type_mapper;
